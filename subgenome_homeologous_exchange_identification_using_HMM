@@ -1,0 +1,232 @@
+if (!requireNamespace("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+BiocManager::install("karyoploteR")
+
+library(karyoploteR)
+
+Akmer.file <- "~/Dropbox/Documents/red_grass/A_kmers.bed"
+Bkmer.file <- "~/Dropbox/Documents/red_grass/B_kmers.bed"
+bed.file <- "~/Dropbox/Documents/red_grass/genome_20_big_scaffolds.bed"
+
+Akmer.lines <- readLines(Akmer.file, n = 110848)
+Bkmer.lines <- readLines(Bkmer.file, n = 18593)
+
+genome <- toGRanges(bed.file)
+
+#and create a GRanges with the information
+
+
+library(rtracklayer)
+
+
+#Akmers
+Afeatures <- import(Akmer.file)
+kp <- plotKaryotype(genome=genome, ideogram.plotter = NULL)
+kpAddCytobandsAsLine(kp)
+kpPlotRegions(kp, data=Afeatures,avoid.overlapping = FALSE)
+
+
+
+#Bkmers
+Bfeatures <- import(Bkmer.file)
+kp <- plotKaryotype(genome=genome, ideogram.plotter = NULL)
+kpAddCytobandsAsLine(kp)
+kpPlotRegions(kp, data=Bfeatures,avoid.overlapping = FALSE)
+
+
+#Kmer density
+kp <- plotKaryotype(genome=genome, main="Kmer Density", ideogram.plotter = NULL)
+kpA <- kpPlotDensity(kp, Afeatures, window.size = 1e6, data.panel="ideogram", col="#3388FF", border="#3388FF", r0=4, r1=0)
+kpB <- kpPlotDensity(kp, Bfeatures, window.size = 1e6, data.panel="ideogram", col="#3388FF", border="#3388FF", r0=3, r1=0)
+#try training with 2 and 4
+#A density 1mb
+A<-kpA$latest.plot$computed.values$density
+B<-kpB$latest.plot$computed.values$density
+
+#get the most common Kmer in each 1 MB window
+test<-ifelse(A>B*(1), "KA", "KB")
+#HMM 
+#get number of A and B kmers in each 1 MB window in each of the 20 scaffolds
+#get the number train HMM on a chromosome without transfers
+#run HMM on the rest of the scaffolds transition probability of 0.1
+
+#To more rigorously identify segments of anomalous 13-mer density, we developed a Hidden Markov Model whose observed states are 
+#A- and B-enriched 13-mer density in a Mb window, and whose hidden states are the local subgenome identity (A or B). We used
+#the chr01/chr02 A/B pair as our training set for estimating emission probabilities
+#because it has no obvious homoeologous exchanges. For the Viterbi path we used a
+#transition probability of 0.01, and equal starting probabilities.
+library(HMM)
+startProb<-c(0.5, 0.5)
+#things hidden - subgenome state
+states <- c("GA","GB")
+GAProb <- c(0.999, 0.01)
+GBProb <- c(0.01, 0.999)
+transProb <- matrix(c(GAProb, GBProb), 2)
+library("dplyr") 
+ta<-as.data.frame(kpA$latest.plot$computed.values$windows) 
+
+nKAGA<-sum(A[ta$seqnames == "Scaffold_5"])
+nKBGA<-sum(B[ta$seqnames == "Scaffold_5"])
+
+nKAGB<-sum(A[ta$seqnames == "Scaffold_15"])
+nKBGB<-sum(B[ta$seqnames == "Scaffold_15"])
+
+
+#things observed - kmer state
+#try using individual kmer states
+elements <-  c("KA","KB")
+GAStateProb <- c(nKAGA/(nKAGA+nKBGA), nKBGA/(nKAGA+nKBGA))
+GBStateProb <- c(nKAGB/(nKAGB+nKBGB), nKBGB/(nKAGB+nKBGB))
+
+emissProb <- matrix(c(GAStateProb,GBStateProb), 2, byrow = T) 
+emissProb
+
+hmm <- initHMM(States = states, 
+                  Symbols = elements,
+             transProbs=transProb,
+                 emissionProbs = emissProb)
+
+
+Ao<-as.data.frame(Afeatures) 
+Bo<-as.data.frame(Bfeatures) 
+
+Ao<-cbind.data.frame(Ao$seqnames, Ao$start, "KA")
+colnames(Ao)<-c("Scaffold", "Start", "Kmer")
+Bo<-cbind.data.frame(Bo$seqnames, Bo$start, "KB")
+colnames(Bo)<-c("Scaffold", "Start", "Kmer")
+Ko<-rbind(Ao, Bo)
+#order by scaffold then start
+Ordered<-Ko[
+  order( Ko[,1], Ko[,2] ),
+]
+#Go through each window and get order
+
+#retrain parameters on Scaffold 4 and Scaffold 15   
+obs<-c(as.character(Ordered[Ordered$Scaffold=="Scaffold_5",3]),as.character(Ordered[Ordered$Scaffold=="Scaffold_15",3]))
+newhmm<-viterbiTraining(hmm,obs,10)
+genomedf<-as.data.frame(genome) 
+for(i in 1:length(genomedf$seqnames)){
+  i<-3
+  x<-viterbi(newhmm$hmm,Ordered[Ordered$Scaffold==genomedf[i,1],3])
+  
+}
+#this doesn't seem to work well as many transitions
+y<-ifelse(x=="GA", 1,0)
+plot(Ordered[Ordered$Scaffold==genomedf[i,1],2],y)
+
+
+##test on 1Mb blocks taking the most frequent kmer type (test)
+
+#retrain parameters using most common kmers state in each window 
+obs<-c(as.character(test[Af$seqnames=="Scaffold_5"]),as.character(test[Af$seqnames=="Scaffold_15"]))
+new2hmm<-viterbiTraining(hmm,obs,10)
+
+new3hmm <- initHMM(States = states, 
+               Symbols = elements,
+               transProbs=transProb,
+               emissionProbs = new2hmm$hmm$emissionProbs)
+
+
+#get window locations for each scaffold
+Af<-as.data.frame(kpA$latest.plot$computed.values$windows)
+
+#number of windows tested
+length(test)
+
+x<-test[Af$seqnames=="Scaffold_1"]
+viterbi(new2hmm$hmm,x)
+x<-test[Af$seqnames=="Scaffold_2"]
+viterbi(new2hmm$hmm,x)
+
+x<-test[Af$seqnames=="Scaffold_3"]
+viterbi(new2hmm$hmm,x)
+#GA and some GB on the end
+x<-test[Af$seqnames=="Scaffold_4"]
+viterbi(new2hmm$hmm,x)
+
+#x<-test[Af$seqnames=="Scaffold_4"]
+#viterbi(hmm,x)
+
+
+x<-test[Af$seqnames=="Scaffold_5"]
+viterbi(new2hmm$hmm,x)
+
+x<-test[Af$seqnames=="Scaffold_6"]
+viterbi(new2hmm$hmm,x)
+
+x<-test[Af$seqnames=="Scaffold_7"]
+viterbi(new2hmm$hmm,x)
+
+x<-test[Af$seqnames=="Scaffold_8"]
+viterbi(new2hmm$hmm,x)
+
+###GA mostly GB
+x<-test[Af$seqnames=="Scaffold_9"]
+y<-viterbi(new2hmm$hmm,x)
+A[Af$seqnames=="Scaffold_9"]
+B[Af$seqnames=="Scaffold_9"]
+z<-ifelse(y=="GA", 1,0)
+plot(z)
+length(z)
+sum(z)
+sum(z)/length(z)
+#figure out a way to plot the density of kmers of each type in each window
+
+x<-test[Af$seqnames=="Scaffold_9"]
+viterbi(hmm,x)
+
+x<-test[Af$seqnames=="Scaffold_10"]
+viterbi(new2hmm$hmm,x)
+
+x<-test[Af$seqnames=="Scaffold_11"]
+viterbi(new2hmm$hmm,x)
+
+###GA mostly GB
+x<-test[Af$seqnames=="Scaffold_12"]
+y<-viterbi(new2hmm$hmm,x)
+y
+A[Af$seqnames=="Scaffold_12"]
+B[Af$seqnames=="Scaffold_12"]
+
+z<-ifelse(y=="GA", 1,0)
+plot(z)
+length(z)
+sum(z)
+sum(z)/length(z)
+
+#figure out a way to plot the density of kmers of each type in each window
+
+
+x<-test[Af$seqnames=="Scaffold_13"]
+viterbi(new2hmm$hmm,x)
+
+x<-test[Af$seqnames=="Scaffold_14"]
+viterbi(new2hmm$hmm,x)
+
+x<-test[Af$seqnames=="Scaffold_15"]
+viterbi(new2hmm$hmm,x)
+
+#starts with GA
+x<-test[Af$seqnames=="Scaffold_16"]
+y<-viterbi(new2hmm$hmm,x)
+y
+A[Af$seqnames=="Scaffold_16"]
+B[Af$seqnames=="Scaffold_16"]
+
+z<-ifelse(y=="GA", 1,0)
+plot(z)
+length(z)
+sum(z)
+sum(z)/length(z)
+
+#figure out a way to plot the density of kmers of each type in each window
+
+x<-test[Af$seqnames=="Scaffold_17"]
+viterbi(new2hmm$hmm,x)
+
+x<-test[Af$seqnames=="Scaffold_18"]
+viterbi(new2hmm$hmm,x)
+
+x<-test[Af$seqnames=="Scaffold_20"]
+viterbi(new2hmm$hmm,x)
+
