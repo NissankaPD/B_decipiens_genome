@@ -1,0 +1,105 @@
+#Clustering scaffolds to subgenomes on unique kmer density
+data<-read.csv("./all.kmer.table", sep=" ", header=F)
+header<-read.table("./header")
+rows<-read.table("./rownames.kmer.table")
+
+t2<-c(95095653,54808898,69850004,69297705,64401009,64362135,62464675,59876049,56562263,53950350,50175798,48380825,48222736,47437951,46542323,45305270,44964298,43369925,43099172,42636893)
+
+t<-c("s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9", "s10", "s11", "s12", "s13", "s14", "s15", "s16", "s17", "s18", "s19", "s20")
+t<-as.data.frame(t)
+
+t3<-as.data.frame(t(header[2:21]))
+o<-match(t3$V1, t$t)
+t$t[o]
+x<-t2[o]
+
+data2<-sweep(data[,2:21],MARGIN=2,FUN="/",STATS=(x))
+
+data2<-(data2)*1000000
+data2<-log2(data2)
+rownames(data2)<-rows$V1
+colnames(data2)<-(t(header))[2:21]
+
+data2[is.na(data2)] <- 0
+
+
+##get standardized deviations between the homeologous pairs and see the direction of the deviataion
+####Q - why this matrix reduces from the original kmer number, because both dont have it
+diffstand<-cbind(data2$s1-data2$s2,data2$s3-data2$s4,data2$s5-data2$s7,data2$s6-data2$s9,data2$s8-data2$s16,data2$s10-data2$s18,data2$s11-data2$s17,data2$s12-data2$s14,data2$s13-data2$s15,data2$s19-data2$s20)
+diffstand<- ifelse(diffstand > 0, 1,0)
+
+
+#get standardized 3 fold different between pairs
+### get kmers that the absolute difference between the two homoelogs  are 2 fold in all the pairs 
+diag_stand<-data2[abs(data2$s1-data2$s2)>1.5 & abs(data2$s3-data2$s4)>1.5 & abs(data2$s5-data2$s7)>1.5 & abs(data2$s6-data2$s9)>1.5 & abs(data2$s8-data2$s16)>1.5 & abs(data2$s10-data2$s18)>1.5 & abs(data2$s11-data2$s17)>1.5 & abs(data2$s12-data2$s14)>1.5 & abs(data2$s13-data2$s15)>1.5 & abs(data2$s19-data2$s20)>1.5,]
+
+
+#get absoulute no standardization
+
+tot<-colSums(data, na.rm = T)
+
+data2<-log2(data)
+
+colnames(data2)<-t(header)
+rownames(data2)<-rows$V1
+
+rownames(data2)<-rows$V1
+data2[is.na(data2)] <- 0
+
+data2<-data2[,2:21]
+
+
+diffUN<-cbind(data2$s1-data2$s2,data2$s3-data2$s4,data2$s5-data2$s7,data2$s6-data2$s9,data2$s8-data2$s16,data2$s10-data2$s18,data2$s11-data2$s17,data2$s12-data2$s14,data2$s13-data2$s15,data2$s19-data2$s20)
+rownames(diffUN)<-rownames(data2)
+diffUN<- ifelse(diffUN > 0, 1,0)
+
+#unstandardized three fold differences
+
+diag_UN<-data2[abs(data2$s1-data2$s2)>1.5 & abs(data2$s3-data2$s4)>1.5 & abs(data2$s5-data2$s7)>1.5 & abs(data2$s6-data2$s9)>1.5 & abs(data2$s8-data2$s16)>1.5 & abs(data2$s10-data2$s18)>1.5 & abs(data2$s11-data2$s17)>1.5 & abs(data2$s12-data2$s14)>1.5 & abs(data2$s13-data2$s15)>1.5 & abs(data2$s19-data2$s20) >1.5,]
+
+#get pairs that are three fold different for absolute and relative measures
+
+diag_both<-diag_UN[rownames(diag_UN)%in%rownames(diag_stand),]
+
+dim(diag_both)
+
+#get pairs that are three fold different and in the same direction
+#a=dim(diffUN)[1]
+#b=dim(diffUN)[2]
+#dim(diffUN)
+
+
+vec<-matrix(0,dim(diffUN)[1]:1)
+for(j in 1:dim(diffUN)[1]) {
+  c=0
+  for(i in 1:dim(diffUN)[2])
+    
+    if(diffUN[j,i]==diffstand[j,i]){
+      c=c+1
+    }
+  vec[j]<-ifelse(c>8,1, 0)
+}
+
+#a=dim(diffUN)[1]
+#a
+
+names<-rownames(data2)[vec==1]
+diag_all<-diag_both[rownames(diag_both)%in%names,]
+
+diag_both_stand<-diag_stand[rownames(diag_stand)%in%rownames(diag_UN),]
+
+diag_all_stand<-diag_both_stand[rownames(diag_both_stand)%in%names,]
+
+write.table(diag_all_stand, "./diagnostickmers1_standchromleng_abs_samedir_standkmers.txt", sep=" ", quote=F)
+
+write.table(diag_all, "./diagnostickmers1_standchromleng_abs_samedir_rawkmers.txt", sep=" ", quote=F)
+
+
+head(diag)
+diag<-t(as.matrix(diag_all[,1:20]))
+d <- dist(diag)   # find distance matrix
+hc <- hclust(d)
+plot(hc)
+
+library(gplots)
+x=heatmap.2(diag, rowv=TRUE, Colv = TRUE,trace = 'none')
