@@ -1,0 +1,121 @@
+library(ape)
+if (!requireNamespace("BiocManager", quietly = TRUE))
+ install.packages("BiocManager")
+BiocManager::install(c("Biostrings", "seqLogo"))
+install.packages("phangorn")
+library(phangorn)
+
+##read alignment file and convert to formatå
+#T = K/2r, where T = time of divergence, K = divergence and r = substitution rate
+#1.3 × 10–8 substitutions per site per year in grasses (Ma and Bennetzen, 2004)
+r=1.3e-8 #try this rate
+#r=2.1e-8 #try miscanthus rate (note it is mistakenly in myr but it should be in years)
+fam_29 = read.phyDat("./fam_29_alingn.txt", format="fasta")
+x = as.DNAbin(fam_29)
+##Calculate pairwise distance jukes cantor model##
+dist_dna <- dist.dna(x, model="JC69")
+dist_dna
+options(scipen = 999)
+z<-as.vector(dist_dna)/(2*1.3e-8)/1000000 #T=K/2r/1millon 
+plot(density(z)) 
+plot(density(z[z<10])) 
+
+##
+fam_29_density=density(z[z<10])
+z_29 = (z[z<10])
+
+fam_45 = read.phyDat("./fam_45_alingn.txt", format="fasta")
+x = as.DNAbin(fam_45 )
+##Calculate pairwise distance jukes cantor model##
+dist_dna <- dist.dna(x, model="JC69")
+dist_dna
+options(scipen = 999)
+
+z<-as.vector(dist_dna)/(2*1.3e-8)/1000000 
+plot(density(z)) 
+plot(density(z[z<10])) #remove dates older than the species split
+##
+fam_45_density=density(z[z<10])
+z_45 = (z[z<10])
+
+
+
+fam_47 = read.phyDat("./fam_47_alingn.txt", format="fasta")
+x = as.DNAbin(fam_47 )
+##Calculate pairwise distance jukes cantor model##
+dist_dna <- dist.dna(x, model="JC69")
+dist_dna
+options(scipen = 999)
+
+z<-as.vector(dist_dna)/(2*1.3e-8)/1000000
+plot(density(z)) 
+plot(density(z[z<10])) #remove dates older than the species split
+
+##
+fam_47_density=density(z[z<10])
+z_47 = (z[z<10])
+
+
+fam_53 = read.phyDat("./fam_53_alingn.txt", format="fasta")
+x = as.DNAbin(fam_53 )
+##Calculate pairwise distance jukes cantor model##
+dist_dna <- dist.dna(x, model="JC69")
+dist_dna
+options(scipen = 999)
+
+z<-as.vector(dist_dna)/(2*1.3e-8)/1000000
+plot(density(z)) 
+plot(density(z[z<10])) #remove dates older than the species split
+
+##
+fam_53_density=density(z[z<10])
+z_53 = (z[z<10])
+
+
+
+fam_61 = read.phyDat("./fam_61_alingn.txt", format="fasta")
+x = as.DNAbin(fam_61 )
+##Calculate pairwise distance jukes cantor model##
+dist_dna <- dist.dna(x, model="JC69")
+dist_dna
+options(scipen = 999)
+
+z<-as.vector(dist_dna)/(2*1.3e-8)/1000000
+plot(density(z)) 
+plot(density(z[z<10])) #remove dates older than the species split
+
+
+
+##
+fam_61_density=density(z[z<10])
+z_61 = (z[z<10])
+
+fam_63 = read.phyDat("./fam_63_alingn.txt", format="fasta")
+x = as.DNAbin(fam_63 )
+##Calculate pairwise distance jukes cantor model##
+dist_dna <- dist.dna(x, model="JC69")
+dist_dna
+options(scipen = 999)
+
+z<-as.vector(dist_dna)/(2*1.3e-8)/1000000
+plot(density(z)) 
+plot(density(z[z<10])) #remove dates older than the species split
+
+##
+fam_63_density=density(z[z<10])
+z_63 = (z[z<10])
+
+
+##overlapping density plot
+plot(fam_53_density, col = "black", xlab="MY", ylab = "Density", xlim = c(0,9),main=NA)
+lines(fam_29_density,col="red")
+lines(fam_45_density, col="green")
+lines(fam_47_density, col="blue")
+lines(fam_61_density, col="purple")
+lines(fam_63_density, col="orange")
+#legend("topright", c("bd-bd","so-bd","mis-bd","mis-so"), lty = c(1,1), col = c("red","blue", "green", "black"), cex = 0.5)
+
+all_times = c(z_29,z_45,z_47,z_53,z_61,z_63)
+
+all_time_density=density(all_times)
+plot(all_time_density, xlab="MY", ylab = "Density", main=NA)
