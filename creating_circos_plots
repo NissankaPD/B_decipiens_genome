@@ -1,0 +1,48 @@
+install.packages("circlize")
+library(circlize)
+
+circos.clear()
+
+cytoband.df = read.csv('cytoband.csv', colClasses = c("character", "numeric", "numeric"))
+circos.par(gap.after=5)
+
+
+
+circos.initializeWithIdeogram(cytoband.df, plotType = c("axis", "labels"))
+circos.text(sector.index="1",track.index = 1,get.cell.meta.data("cell.xlim")-mean(get.cell.meta.data("cell.xlim"))/2,
+            get.cell.meta.data("cell.ylim")-max(get.cell.meta.data("cell.ylim"))/2, labels = "A",facing = "clockwise", 
+            niceFacing = TRUE, adj = c(-4,0.5),cex = 0.7)
+
+bed_genes = read.csv('genes.csv',colClasses = c("character", "numeric", "numeric", "character")) 
+bed_all_repeat=read.table('all_repeat_new.txt', colClasses = c("character", "numeric", "numeric", "character"))
+bed_repeats_DNA = read.csv('DNA_reps_cytoband.csv',colClasses = c("character", "numeric", "numeric", "character")) 
+bed_repeats_LTR =read.csv('LTR_reps_cytobad.csv', colClasses = c("character", "numeric", "numeric", "character") )
+bed_GC=read.csv('GC_content_cytobamd.csv', colClasses = c("character", "numeric", "numeric", "numeric") )
+
+circos.genomicDensity(bed_genes, window.size = 1e6, col = "green", track.height = 0.1)
+circos.text(sector.index="1",track.index = 1,get.cell.meta.data("cell.xlim")-mean(get.cell.meta.data("cell.xlim"))/2,
+            get.cell.meta.data("cell.ylim")-max(get.cell.meta.data("cell.ylim"))/2, labels = "B",facing = "clockwise", 
+            niceFacing = TRUE, adj = c(1,0.5),cex = 0.7)
+
+circos.genomicDensity(bed_all_repeat, window.size = 1e6, col = "blue", track.height = 0.1)
+circos.text(sector.index="1",track.index = 1,get.cell.meta.data("cell.xlim")-mean(get.cell.meta.data("cell.xlim"))/2,
+            get.cell.meta.data("cell.ylim")-max(get.cell.meta.data("cell.ylim"))/2, labels = "C",facing = "clockwise", 
+            niceFacing = TRUE, adj = c(5,0.5),cex = 0.7)
+
+circos.genomicDensity(bed_repeats_DNA, window.size = 1e6, col = "red", track.height = 0.1)
+circos.text(sector.index="1",track.index = 1,get.cell.meta.data("cell.xlim")-mean(get.cell.meta.data("cell.xlim"))/2,
+            get.cell.meta.data("cell.ylim")-max(get.cell.meta.data("cell.ylim"))/2, labels = "D",facing = "clockwise", 
+            niceFacing = TRUE, adj = c(13,0.5),cex = 0.7)
+
+
+circos.genomicDensity(bed_repeats_LTR, window.size = 1e6, col = "yellow",track.height = 0.1 )
+circos.text(sector.index="1",track.index = 1,get.cell.meta.data("cell.xlim")-mean(get.cell.meta.data("cell.xlim"))/2,
+            get.cell.meta.data("cell.ylim")-max(get.cell.meta.data("cell.ylim"))/2, labels = "E",facing = "clockwise", 
+            niceFacing = TRUE, adj = c(20,0.5),cex = 0.7)
+
+
+circos.genomicDensity(bed_GC, window.size = 1e6, col = "black",track.height = 0.1 )
+circos.text(sector.index="1",track.index = 1,get.cell.meta.data("cell.xlim")-mean(get.cell.meta.data("cell.xlim"))/2,
+            get.cell.meta.data("cell.ylim")-max(get.cell.meta.data("cell.ylim"))/2, labels = "F",facing = "clockwise", 
+            niceFacing = TRUE, adj = c(28,0.5),cex = 0.7)
+
